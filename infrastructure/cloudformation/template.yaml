@@ -14,6 +14,9 @@ Parameters:
     Type: Number
     Default: 8080
 
+Conditions:
+  HasAppImage: !Not [!Equals [!Ref AppImage, ""]]
+
 Resources:
 
   # ============================================================
@@ -354,6 +357,7 @@ Resources:
 
   AppTaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    Condition: HasAppImage
     Properties:
       Family: !Sub "${Environment}-btg-funds-api"
       Cpu: '512'
@@ -398,6 +402,7 @@ Resources:
 
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    Condition: HasAppImage
     Properties:
       GroupDescription: ALB - allow inbound HTTP
       VpcId: !Ref Vpc
@@ -412,6 +417,7 @@ Resources:
 
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    Condition: HasAppImage
     Properties:
       GroupDescription: Fargate tasks - allow traffic from ALB only
       VpcId: !Ref Vpc
@@ -428,6 +434,7 @@ Resources:
 
   Alb:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: HasAppImage
     Properties:
       Name: !Sub "${Environment}-btg-funds-alb"
       Scheme: internet-facing
@@ -440,6 +447,7 @@ Resources:
 
   AlbTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: HasAppImage
     Properties:
       Name: !Sub "${Environment}-btg-funds-tg"
       Port: !Ref AppPort
@@ -453,6 +461,7 @@ Resources:
 
   AlbListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: HasAppImage
     Properties:
       LoadBalancerArn: !Ref Alb
       Port: 80
@@ -465,6 +474,7 @@ Resources:
 
   AppService:
     Type: AWS::ECS::Service
+    Condition: HasAppImage
     DependsOn: AlbListener
     Properties:
       ServiceName: !Sub "${Environment}-btg-funds-api"
@@ -489,6 +499,7 @@ Outputs:
   VpcId:
     Value: !Ref Vpc
   AlbDnsName:
+    Condition: HasAppImage
     Description: Application URL
     Value: !Sub "http://${Alb.DNSName}"
   EcsClusterName:

@@ -1,0 +1,30 @@
+# Project exclusions
+files-prueba/
+Prueba Tecnica BackEnd  1.pdf
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+build/
+target/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Environment
+.env

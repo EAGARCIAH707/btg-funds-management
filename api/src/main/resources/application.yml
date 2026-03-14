@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: btg-funds-api
+
+server:
+  port: 8080
+
+aws:
+  region: ${AWS_REGION:us-east-1}
+  endpoint: ${AWS_ENDPOINT:#{null}}
+  dynamodb:
+    table-prefix: ${DYNAMODB_TABLE_PREFIX:dev-}
+  sns:
+    topic-arn: ${SNS_TOPIC_ARN:arn:aws:sns:us-east-1:000000000000:dev-fund-notifications}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

@@ -38,7 +38,7 @@ aws ecr get-login-password --region "$REGION" | docker login --username AWS --pa
 
 IMAGE_TAG="${ECR_URI}:latest"
 echo "==> Building Docker image..."
-docker build -t "$IMAGE_TAG" "$(dirname "$0")/../.."
+docker build -t "$IMAGE_TAG" "$(dirname "$0")/../../api"
 
 echo "==> Pushing image to ECR..."
 docker push "$IMAGE_TAG"

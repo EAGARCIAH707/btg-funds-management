@@ -1,12 +1,11 @@
 package com.btg.funds.domain.usecase;
 
 import com.btg.funds.domain.exception.ClientNotFoundException;
+import com.btg.funds.domain.model.PageResult;
 import com.btg.funds.domain.model.Transaction;
 import com.btg.funds.domain.port.in.GetTransactionHistoryUseCase;
 import com.btg.funds.domain.port.out.ClientRepository;
 import com.btg.funds.domain.port.out.TransactionRepository;
-
-import java.util.List;
 
 public class GetTransactionHistoryUseCaseImpl implements GetTransactionHistoryUseCase {
 
@@ -20,10 +19,10 @@ public class GetTransactionHistoryUseCaseImpl implements GetTransactionHistoryUs
     }
 
     @Override
-    public List<Transaction> execute(String clientId) {
+    public PageResult<Transaction> execute(String clientId, int page, int size) {
         clientRepository.findById(clientId)
                 .orElseThrow(() -> new ClientNotFoundException(clientId));
 
-        return transactionRepository.findByClientId(clientId);
+        return transactionRepository.findByClientId(clientId, page, size);
     }
 }

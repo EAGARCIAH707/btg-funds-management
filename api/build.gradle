@@ -23,6 +23,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+    // OpenAPI / Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.5'
+
     // AWS SDK v2
     implementation platform('software.amazon.awssdk:bom:2.30.9')
     implementation 'software.amazon.awssdk:dynamodb-enhanced'

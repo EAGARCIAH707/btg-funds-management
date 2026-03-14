@@ -4,12 +4,15 @@ import com.btg.funds.domain.port.in.CancelSubscriptionUseCase;
 import com.btg.funds.domain.port.in.SubscribeToFundUseCase;
 import com.btg.funds.adapter.in.rest.model.dto.SubscribeRequest;
 import com.btg.funds.adapter.in.rest.model.dto.TransactionResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/funds")
+@Tag(name = "Funds", description = "Gestión de suscripciones a fondos")
 public class FundController {
 
     private final SubscribeToFundUseCase subscribeToFundUseCase;
@@ -23,12 +26,14 @@ public class FundController {
 
     @PostMapping("/subscribe")
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Suscribir un cliente a un fondo de inversión")
     public TransactionResponse subscribe(@Valid @RequestBody SubscribeRequest request) {
         var command = new SubscribeToFundUseCase.Command(request.clientId(), request.fundId());
         return TransactionResponse.from(subscribeToFundUseCase.execute(command));
     }
 
     @PostMapping("/cancel")
+    @Operation(summary = "Cancelar la suscripción de un cliente a un fondo")
     public TransactionResponse cancel(@Valid @RequestBody SubscribeRequest request) {
         var command = new CancelSubscriptionUseCase.Command(request.clientId(), request.fundId());
         return TransactionResponse.from(cancelSubscriptionUseCase.execute(command));

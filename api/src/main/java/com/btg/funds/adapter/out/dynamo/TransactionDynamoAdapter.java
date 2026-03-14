@@ -1,5 +1,6 @@
 package com.btg.funds.adapter.out.dynamo;
 
+import com.btg.funds.domain.model.PageResult;
 import com.btg.funds.domain.model.Transaction;
 import com.btg.funds.domain.port.out.TransactionRepository;
 import com.btg.funds.adapter.out.dynamo.model.entity.TransactionEntity;
@@ -23,12 +24,20 @@ public class TransactionDynamoAdapter implements TransactionRepository {
     }
 
     @Override
-    public List<Transaction> findByClientId(String clientId) {
+    public PageResult<Transaction> findByClientId(String clientId, int page, int size) {
         var condition = QueryConditional.keyEqualTo(
                 Key.builder().partitionValue(clientId).build()
         );
-        return table.query(condition).items().stream()
+
+        List<Transaction> allItems = table.query(condition).items().stream()
                 .map(TransactionEntity::toDomain)
                 .toList();
+
+        int totalElements = allItems.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        int fromIndex = Math.min(page * size, totalElements);
+        int toIndex = Math.min(fromIndex + size, totalElements);
+
+        return new PageResult<>(allItems.subList(fromIndex, toIndex), page, size, totalElements, totalPages);
     }
 }

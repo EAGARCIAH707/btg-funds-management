@@ -1,10 +1,9 @@
 package com.btg.funds.domain.port.in;
 
+import com.btg.funds.domain.model.PageResult;
 import com.btg.funds.domain.model.Transaction;
-
-import java.util.List;
 
 public interface GetTransactionHistoryUseCase {
 
-    List<Transaction> execute(String clientId);
+    PageResult<Transaction> execute(String clientId, int page, int size);
 }

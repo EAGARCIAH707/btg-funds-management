@@ -34,7 +34,7 @@ class GetTransactionHistoryUseCaseImplTest {
     }
 
     @Test
-    void shouldReturnTransactionHistory() {
+    void shouldReturnPaginatedTransactionHistory() {
         var client = new Client("client-001", "Juan", "j@e.com", "+57300",
                 new BigDecimal("500000"), NotificationPreference.EMAIL);
         var transactions = List.of(
@@ -43,22 +43,25 @@ class GetTransactionHistoryUseCaseImplTest {
                 new Transaction("tx-2", "client-001", "1", "FPV_BTG_PACTUAL_RECAUDADORA",
                         TransactionType.CANCELACION, new BigDecimal("75000"), Instant.now())
         );
+        var pageResult = new PageResult<>(transactions, 0, 10, 2, 1);
 
         when(clientRepository.findById("client-001")).thenReturn(Optional.of(client));
-        when(transactionRepository.findByClientId("client-001")).thenReturn(transactions);
+        when(transactionRepository.findByClientId("client-001", 0, 10)).thenReturn(pageResult);
 
-        var result = useCase.execute("client-001");
+        var result = useCase.execute("client-001", 0, 10);
 
-        assertThat(result).hasSize(2);
-        assertThat(result.get(0).type()).isEqualTo(TransactionType.APERTURA);
-        assertThat(result.get(1).type()).isEqualTo(TransactionType.CANCELACION);
+        assertThat(result.content()).hasSize(2);
+        assertThat(result.content().get(0).type()).isEqualTo(TransactionType.APERTURA);
+        assertThat(result.content().get(1).type()).isEqualTo(TransactionType.CANCELACION);
+        assertThat(result.totalElements()).isEqualTo(2);
+        assertThat(result.totalPages()).isEqualTo(1);
     }
 
     @Test
     void shouldThrowWhenClientNotFound() {
         when(clientRepository.findById("unknown")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> useCase.execute("unknown"))
+        assertThatThrownBy(() -> useCase.execute("unknown", 0, 10))
                 .isInstanceOf(ClientNotFoundException.class);
     }
 }

@@ -527,6 +527,19 @@ GitHub (main) ──► CodePipeline ──► CodeBuild ──► CloudFormatio
                                  (commit SHA)      (rolling deploy)
 ```
 
+### Ejecucion exitosa del pipeline
+
+![Pipeline CI/CD - Ejecucion exitosa](docs/pipeline-success.png)
+
+### API desplegada
+
+| Recurso | URL |
+|---|---|
+| **API Base** | `http://dev-btg-funds-alb-1170465162.us-east-1.elb.amazonaws.com` |
+| **Health Check** | `http://dev-btg-funds-alb-1170465162.us-east-1.elb.amazonaws.com/actuator/health` |
+| **Swagger UI** | `http://dev-btg-funds-alb-1170465162.us-east-1.elb.amazonaws.com/swagger-ui.html` |
+| **OpenAPI Spec** | `http://dev-btg-funds-alb-1170465162.us-east-1.elb.amazonaws.com/v3/api-docs` |
+
 ### Flujo detallado
 
 1. **Source**: Push a branch `main` en GitHub (via CodeStar Connection)

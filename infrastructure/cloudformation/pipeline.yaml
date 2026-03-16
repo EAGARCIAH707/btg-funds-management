@@ -1,0 +1,270 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: BTG Funds - CI/CD Pipeline (GitHub → CodeBuild → CloudFormation)
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  GitHubOwner:
+    Type: String
+    Default: EAGARCIAH707
+  GitHubRepo:
+    Type: String
+    Default: btg-funds-management
+  GitHubBranch:
+    Type: String
+    Default: main
+  ConnectionArn:
+    Type: String
+    Description: ARN of the CodeStar Connection to GitHub (create in Console → Developer Tools → Connections)
+
+Resources:
+
+  # ============================================================
+  # S3 - Pipeline Artifacts
+  # ============================================================
+
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub "${Environment}-btg-funds-pipeline-artifacts-${AWS::AccountId}"
+      LifecycleConfiguration:
+        Rules:
+          - Id: CleanupOldArtifacts
+            Status: Enabled
+            ExpirationInDays: 7
+
+  # ============================================================
+  # CodeBuild - Build & Push Docker Image
+  # ============================================================
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${Environment}-btg-funds-build"
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      TimeoutInMinutes: 15
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+          - Name: ECR_REPOSITORY_URI
+            Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Environment}-btg-funds-api"
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: api/buildspec.yml
+      Artifacts:
+        Type: CODEPIPELINE
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}-btg-funds-codebuild-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*"
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:PutImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${Environment}-btg-funds-api"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !GetAtt ArtifactsBucket.Arn
+                  - !Sub "${ArtifactsBucket.Arn}/*"
+
+  # ============================================================
+  # CodePipeline
+  # ============================================================
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub "${Environment}-btg-funds-pipeline"
+      RoleArn: !GetAtt PipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactsBucket
+      Stages:
+
+        # --- Source: GitHub ---
+        - Name: Source
+          Actions:
+            - Name: GitHub
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: !Ref ConnectionArn
+                FullRepositoryId: !Sub "${GitHubOwner}/${GitHubRepo}"
+                BranchName: !Ref GitHubBranch
+                OutputArtifactFormat: CODE_ZIP
+              OutputArtifacts:
+                - Name: SourceOutput
+
+        # --- Build: Docker image ---
+        - Name: Build
+          Actions:
+            - Name: BuildAndPush
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+              Namespace: BuildVariables
+
+        # --- Deploy: CloudFormation ---
+        - Name: Deploy
+          Actions:
+            - Name: CreateChangeSet
+              RunOrder: 1
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CHANGE_SET_REPLACE
+                StackName: !Sub "${Environment}-btg-funds-infra"
+                ChangeSetName: !Sub "${Environment}-btg-funds-changeset"
+                TemplatePath: SourceOutput::infrastructure/cloudformation/template.yaml
+                ParameterOverrides: !Sub |
+                  {
+                    "Environment": "${Environment}",
+                    "AppImage": "#{BuildVariables.IMAGE_URI}"
+                  }
+                Capabilities: CAPABILITY_NAMED_IAM
+                RoleArn: !GetAtt CloudFormationRole.Arn
+              InputArtifacts:
+                - Name: SourceOutput
+
+            - Name: ExecuteChangeSet
+              RunOrder: 2
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: '1'
+              Configuration:
+                ActionMode: CHANGE_SET_EXECUTE
+                StackName: !Sub "${Environment}-btg-funds-infra"
+                ChangeSetName: !Sub "${Environment}-btg-funds-changeset"
+
+  # ============================================================
+  # IAM Roles
+  # ============================================================
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}-btg-funds-pipeline-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PipelineAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                  - s3:GetBucketVersioning
+                Resource:
+                  - !GetAtt ArtifactsBucket.Arn
+                  - !Sub "${ArtifactsBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                Resource: !Ref ConnectionArn
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource: !GetAtt CodeBuildProject.Arn
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:SetStackPolicy
+                Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${Environment}-btg-funds-infra/*"
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !GetAtt CloudFormationRole.Arn
+
+  CloudFormationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}-btg-funds-cfn-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+Outputs:
+  PipelineName:
+    Value: !Ref Pipeline
+  PipelineUrl:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/codesuite/codepipeline/pipelines/${Pipeline}/view"

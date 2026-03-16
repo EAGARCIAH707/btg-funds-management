@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-STACK_NAME="${1:-btg-funds-management-stack}"
-ENVIRONMENT="${2:-dev}"
-REGION="${3:-us-east-1}"
+ENVIRONMENT="${1:-dev}"
+REGION="${2:-us-east-1}"
+STACK_NAME="${ENVIRONMENT}-btg-funds-infra"
 TEMPLATE_FILE="$(dirname "$0")/../cloudformation/template.yaml"
 
 echo "========================================="
@@ -38,7 +38,7 @@ aws ecr get-login-password --region "$REGION" | docker login --username AWS --pa
 
 IMAGE_TAG="${ECR_URI}:latest"
 echo "==> Building Docker image..."
-docker build -t "$IMAGE_TAG" "$(dirname "$0")/../../api"
+docker build --platform linux/amd64 -t "$IMAGE_TAG" "$(dirname "$0")/../../api"
 
 echo "==> Pushing image to ECR..."
 docker push "$IMAGE_TAG"

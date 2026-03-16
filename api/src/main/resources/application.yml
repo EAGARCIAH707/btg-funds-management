@@ -8,6 +8,8 @@ server:
 aws:
   region: ${AWS_REGION:us-east-1}
   endpoint: ${AWS_ENDPOINT:#{null}}
+  access-key: ${AWS_ACCESS_KEY:test}
+  secret-key: ${AWS_SECRET_KEY:test}
   dynamodb:
     table-prefix: ${DYNAMODB_TABLE_PREFIX:dev-}
   sns:

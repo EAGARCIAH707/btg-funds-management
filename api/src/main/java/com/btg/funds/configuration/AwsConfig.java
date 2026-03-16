@@ -25,6 +25,12 @@ public class AwsConfig {
     @Value("${aws.endpoint:#{null}}")
     private String endpoint;
 
+    @Value("${aws.access-key}")
+    private String accessKey;
+
+    @Value("${aws.secret-key}")
+    private String secretKey;
+
     @Value("${aws.dynamodb.table-prefix:}")
     private String tablePrefix;
 
@@ -34,7 +40,7 @@ public class AwsConfig {
         if (endpoint != null) {
             builder.endpointOverride(URI.create(endpoint))
                     .credentialsProvider(StaticCredentialsProvider.create(
-                            AwsBasicCredentials.create("test", "test")));
+                            AwsBasicCredentials.create(accessKey, secretKey)));
         } else {
             builder.credentialsProvider(DefaultCredentialsProvider.create());
         }
@@ -52,7 +58,7 @@ public class AwsConfig {
         if (endpoint != null) {
             builder.endpointOverride(URI.create(endpoint))
                     .credentialsProvider(StaticCredentialsProvider.create(
-                            AwsBasicCredentials.create("test", "test")));
+                            AwsBasicCredentials.create(accessKey, secretKey)));
         } else {
             builder.credentialsProvider(DefaultCredentialsProvider.create());
         }

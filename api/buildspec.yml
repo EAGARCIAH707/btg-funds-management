@@ -1,0 +1,22 @@
+version: 0.2
+
+env:
+  exported-variables:
+    - IMAGE_URI
+
+phases:
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_URI=$ECR_REPOSITORY_URI:$IMAGE_TAG
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - docker build --platform linux/amd64 -t $IMAGE_URI ./api
+  post_build:
+    commands:
+      - echo "Pushing image to ECR..."
+      - docker push $IMAGE_URI
+      - echo "IMAGE_URI=$IMAGE_URI"
